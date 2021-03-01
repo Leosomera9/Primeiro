@@ -1,0 +1,154 @@
+#include <Adafruit_NeoPixel.h>
+#define PIN 5
+#define NUMPIXELS 1
+// Variaveis dos Pinos dos Sensores
+int pino_peso = 7;
+int pino_cinto = 8;
+int pino_buzzer = 6;
+int pino_carro = 2;
+int pino_led = 5;
+// Variaveis Estado Sensores Off=0 On=1
+int estado_cinto = 0;
+int estado_carro = 0;
+int estado_peso = 0;
+// Variaveis de Controlo de Estado
+/******************************************* 
+***  Estado 0 = Inicio tudo desligado
+***  Estado 1 = Carro Ligado, cadeira por verificar / Sem Bebe
+***  Estado 2 = Cadeira com Bebe
+***  Estado 3 = Cinto Colocado
+***  Estado 4 = Carro Parado Apos Viagem, verificar cadeira - Nao utilizado
+*  Estado 5 = Carro ligado,sem peso,sem cinto-viagem sozinho
+*  ESTADO 6 = Cadeira sem peso , sem cinto /Carro desligado 
+*  ESTADO 7= Carro ligado ,cadeira vazia, cinto posto 
+*  ESTADO 8= Carro ligado ,cadeira com bebe, cinto posto - Nao avisa
+********************************************/
+int estado_sistema = 0; // controlo estado programa
+
+ 
+
+Adafruit_NeoPixel pixels (NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+ 
+
+// Inicialização Arduino
+void setup() {
+    pinMode(pino_peso, INPUT);
+    pinMode(pino_cinto, INPUT);
+    pinMode(pino_buzzer, OUTPUT);
+    pinMode(pino_carro, INPUT);
+    pinMode(pino_led, OUTPUT);
+    Serial.begin(9600);
+    pixels.begin();
+}
+void cadeiracinto() { //Verificar se cinto posto
+    estado_cinto = digitalRead(pino_cinto);
+    Serial.println(estado_cinto);
+    if (estado_cinto == HIGH && estado_sistema >= 2) { // cadeira com bebe e cinto posto
+       pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+ pixels.show();
+        Serial.println("cinto posto");
+        
+        noTone(6);
+        delay (100);
+        digitalWrite(pino_led, LOW);
+        estado_sistema = 4;
+        
+       
+    } else { 
+      pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+ pixels.show();
+       
+        Serial.println("cinto retirado");
+        tone(6, 2000, 5000); // APITAR AVISO
+        digitalWrite(pino_led, HIGH); // LED AVISO
+        delay(500);
+        
+
+ 
+
+        estado_sistema = 3;
+    }
+}
+void cadeirapeso() { //Verificar se cadeira tem ocupante
+    estado_peso = digitalRead(pino_peso);
+    if (estado_peso == HIGH) {
+        Serial.println("--Bébé SENTADO - VERIFICAR CINTO --");
+        delay(500);
+         
+  
+        estado_sistema = 2; //Cadeira com bebe,sem cinto
+                cadeiracinto();
+    } else {
+        Serial.println("-------CADEIRA VAZIA-----");
+        
+        estado_sistema = 5; //Cadeira Vazia, carro Ligado, cinto posto
+        delay(700);
+    }
+}
+
+ 
+
+
+/********** Inicio do Programa **********/
+void cadeiracarro() { 
+   
+    estado_carro = digitalRead(pino_carro); // Le sensor do carro se esta ligado
+    if (estado_carro == LOW && estado_sistema == 0) { // Sistema Limpo, Carro Parque
+        Serial.println("Carro Desligado - Parqueado");
+         
+        return; 
+    }
+    else if  (estado_carro == HIGH ){
+        Serial.println("-----Carro Ligado-----");
+        delay(500);
+        estado_sistema = 1; //carro ligado , cadeira por verificar
+      
+              
+        cadeirapeso(); 
+      //cadeiracinto();
+     
+     
+
+ 
+
+  
+        }
+    
+    else { (estado_carro == LOW && estado_sistema == 4); 
+        Serial.println("--Carro DESLIGADO ---");
+        delay(500);
+        //estado_sistema=6;
+            estado_peso = digitalRead(pino_peso);
+            while (estado_peso==HIGH){ // Carro desligado, cadeira bebe apita
+           
+              Serial.println("--Carro DESLIGADO - CADEIRA POR VERIFICAR--");
+                tone(6, 2000, 5000); // APITAR AVISO
+                digitalWrite(pino_led, HIGH); // LED AVISO
+               
+                delay(2000); 
+                estado_peso = digitalRead(pino_peso); 
+                 
+            }
+            if (estado_peso==LOW) { //Carro desligado, cadeira sem peso e sem cinto - Termina Programa
+                estado_sistema=0; 
+               
+        
+               
+                
+            }
+    }
+}
+
+ 
+
+
+void loop() {
+    cadeiracarro();
+     Serial.println("BEBÉ DENTRO DO CARRO");
+  delay(1000);
+
+ 
+
+  
+}
